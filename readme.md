@@ -1,44 +1,126 @@
-[![published](https://static.production.devnetcloud.com/codeexchange/assets/images/devnet-published.svg)](https://developer.cisco.com/codeexchange/github/repo/derek-shnosh/network-code)
+[![published](https://static.production.devnetcloud.com/codeexchange/assets/images/devnet-published.svg)](https://developer.cisco.com/codeexchange/github/repo/derek-shnosh/nxos-cdp-helpers)
 
-# Network Code
+# NX-OS CDP Helpers
 
-Miscellaneous code primarily used in my role as a network engineer.
+## Overview
 
-# Python Scripts
+Python scripts designed to assist network engineers working with NX-OS devices. The primary focus is on enhancing the visibility and manageability of Cisco Discovery Protocol (CDP) information while working with NX-OS CLI; i.e., via console or ssh.
 
-## `nxos-cdp-brief.py`
+***
 
-`nxos-cdp-brief.py` is a script to run *on* an NX-OS device to print a custom CDP neighbor brief table.
+## Set up
 
-I wanted a way to print a _CDP brief_ while working on NXOS switches, to include each neighbor's **Local interface** along with the **Neighbor hostname**, **interface**, **IP address** (mgmt preferred), and optionally their **platform** and/or **version**.
+### With Guestshell (N9K)
 
-The script _will_ account for interfaces with multiple neighbors; this is useful when a downstream switch might transparently pass CDP information from subsequent switches, or when ESXi vSwitches are passing CDP info for guest VMs.
+1. **Init guestshell**, adjust `resize` commands to your preference.
+   ```bash
+   # Disable guestshell to resize allocations
+   guestshell disable
+   y
 
-The script will attempt to import and use the `natsort` module to naturally sort the neighbors by interface, in ascending order. If `natsort` is not available, the results will still be sorted lexicographically (see the [`natsort` PyPI page](https://pypi.org/project/natsort/) for elaboration).
+   # Resize guestshell allocations
+   guestshell resize cpu 10
+   guestshell resize mem 2048
+   guestshell resize rootfs 2000
+   guestshell enable
+   ```
 
-One line is printed per CDP neighbor, containing the following information (reference the screenshot below);
+**NOTE**: Steps 2-5 are to be ran straight from NX-OS CLI. To run within guestshell, enter `guestshell` in NX-OS CLI and then run the commands without "guestshell run".
 
-_*(Optionally), use the args `-p` or `-v` to print the CDP table **with** platform or version information, respectively. There may be some regex parsing issues, has only been validated against most Cisco equipment and some ESXi builds._
+2. **Set up DNS for guestshell** and test DNS ping.
+   ```
+   guestshell run sudo sh -c 'echo nameserver 9.9.9.9 > /etc/resolv.conf'
+   guestshell run sudo chvrf management ping -c4 google.com
+   ```
 
-| Abbreviation      | Definition                                                                                      |
-| ----------------- | ----------------------------------------------------------------------------------------------- |
-| `L-Intf`          | _Local_ interface, where the neighbor was discovered.                                           |
-| `Neighbor`        | The neighbor's hostname.                                                                        |
-| `N-Intf`          | The neighbor's interface that connects to _ours_.                                               |
-| `Mgmt-IPv4-Addr`  | The neighbor's Mgmt IPv4 address.                                                               |
-| `IPv4-Addr`       | The neighbor's _highest_ valued IP address, only shown if this differs from the Mgmt-IPv4-Addr. |
-| (`Platform`) `-p` | The neighbor's platform, or model, information.                                                 |
-| (`Version`) `-v`  | The neighbor's software/firmware version.                                                       |
+3. **Update guestshell & add dependencies**, the `yum update` process may take a while.
+   ```bash
+   guestshell run sudo chvrf management yum -y update
+   guestshell run sudo chvrf management yum -y install git
+   guestshell run sudo chvrf management pip3 install natsort
+   ```
 
-![cdp-brief-screenshot](assets/nxos-cdp-brief.png)
+4. **Remove guestshell DNS config** (security measure).
+   ```bash
+   guestshell run sudo sh -c 'echo "" > /etc/resolv.conf'
+   ```
 
-### Usage
+5. **Create CLI aliases** to run the scripts.
+   ```bash
+   cli alias name cdpbr guestshell run python /bootflash/scripts/nxos-cdp-helpers/nxos-cdp-brief.py
+   cli alias name cdpdesc guestshell run python /bootflash/scripts/nxos-cdp-helpers/nxos-cdp-describe.py -i
+   ```
 
-1. Enable guestshell on the NX-OS device (optional).
-2. Install the natsort python module via guestshell (optional);
-   - `sudo chvrf management pip install natsort`
-3. Copy this script to bootflash:/scripts/nxos-cdp-brief.py
-4. Create a command alias on NX-OS CLI;
-   - With guestshell: `cli alias name cdpbr guestshell run python /bootflash/scripts/nxos-cdp-brief.py`
-   - Without guestshell: `cli alias name cdpbr python /bootflash/scripts/nxos-cdp-brief.py`
-5. Type `cdpbr` in NX-OS CLI to output a useful CDP brief table.
+### Without Guestshell
+
+1. **Copy the scripts** to the switch.
+   ```bash
+   copy <source>/nxos-cdp-brief.py bootflash:scripts/
+   copy <source>/nxos-cdp-describe.py bootflash:scripts/
+   ```
+
+2. **Create CLI aliases** to run the scripts.
+   ```bash
+   cli alias name cdpbr python /bootflash/scripts/nxos-cdp-brief.py
+   cli alias name cdpdesc python /bootflash/scripts/nxos-cdp-describe.py -i
+   ```
+
+***
+
+## Script: `nxos-cdp-brief.py`
+
+<center>
+
+![cdp-brief-screenshot](assets/nxos-cdp-brief.png)</center>
+
+This script generates a custom CDP neighbor _brief_ table that displays the **local interface** for each neighbor, along with the **neighbor hostname**, **connecting interface**, **IP address** (mgmt preferred), and optionally their **platform** and **software version**.
+
+### Features
+- **Multiple Neighbors Handling**: The script accounts for interfaces with multiple CDP neighbors. This is particularly useful in situations where a downstream switch may pass CDP information from subsequent switches, or for Hypervisor _vSwitches_ passing CDP information for guest VMs.
+- **Natural Sorting**: Uses the `natsort` module to sort neighbors by interface in a human-readable order. If `natsort` is not installed, a lexicographical sort is performed (see the [`natsort` PyPI page](https://pypi.org/project/natsort/) for elaboration).
+- **Optional Information**: Display additional platform and version information using `-p` and `-v` arguments.
+
+### Output Fields
+- **L-Intf**: Local interface where the neighbor was discovered.
+- **Neighbor**: Neighbor's hostname.
+- **N-Intf**: Neighbor's interface connected to the local interface.
+- **Mgmt-IPv4-Addr**: Management IPv4 address of the neighbor.
+- **IPv4-Addr**: Neighbor's highest valued IP address, only shown if different from the management IP.
+- **Platform (`-p`)**: Neighbor's platform or model (optional).
+- **Version (`-v`)**: Neighbor's software/firmware version (optional).
+
+### Example Usage
+
+```bash
+# CDP brief output
+cdpbr
+```
+
+## Script: `nxos-cdp-describe.py`
+
+This script will rename interfaces based on the CDP information present, formatted as `HOSTNAME:INTF`. For example, if NX-OS interface **Eth1/3** has a neighbor entry for **IDF-1-ACCESS** that is uplinkd using its **Te1/1/1** interface, the description would be `IDF-1-ACCESS:1/1/1`
+
+### Features
+- **Single interface description**: Run the script against a single interface to rename only that interface, no prompt provided.
+- **Interface descriptions for all interfaces with CDP neighbors**: Run the script against all interfaces and it will parse neighbors and prompt to update descriptions accordingly.
+
+### Example Usage
+
+```bash
+# CDP describe, single interface
+cpdesc Eth1/3
+
+# CDP describe, all interfaces
+cdpdesc all
+```
+
+---
+
+## Requirements
+
+- Python 2.x/3.x
+- NX-OS device with the capability to run Python scripts
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
