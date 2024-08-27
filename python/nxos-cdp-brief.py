@@ -1,14 +1,6 @@
 #!/bin/env python
 # Author: DS, shnosh.io
-
-# 1. Enable guestshell on the NX-OS device.
-# 2. Install the natsort python module via guestshell;
-#    - `sudo chvrf management pip install natsort`
-# 3. Copy this script to bootflash:/scripts/nxos-cdp-brief.py
-# 4. Create a command alias on NX-OS CLI;
-#    - With guestshell: `cli alias name cdpbr guestshell run python /bootflash/scripts/nxos-cdp-brief.py`
-#    - Without guestshell: `cli alias name cdpbr python /bootflash/scripts/nxos-cdp-brief.py`
-# 5. Type `cdpbr` in NX-OS CLI to output a useful CDP brief table.
+# pylint: disable=consider-using-f-string, missing-module-docstring, missing-function-docstring
 
 import argparse
 import json
@@ -16,7 +8,9 @@ import re
 from cli import clid
 
 parser = argparse.ArgumentParser(
-    '\n\nNXOS CDP Brief.', description='Using -p and -v args simultaneously requires extra terminal width; try "terminal width 511".')
+    '\n\nNXOS CDP Brief.',
+    description='Using -p and -v args simultaneously requires extra terminal width; try "terminal width 511".',
+)
 parser.add_argument(
     '-v', '--version', action='store_true', help='Include neighbor version in printout.',)
 parser.add_argument(
@@ -25,18 +19,19 @@ args = parser.parse_args()
 include_ver = args.version
 include_plat = args.platform
 
+# Try to import the natsort module for natural sorting.
 try:
     from natsort import natsorted
-    natsorted_avail = True
+    NATSORTED_AVAIL = True
 except ImportError:
-    natsorted_avail = False
+    NATSORTED_AVAIL = False
 
 # Check for CDP neighbors.
 try:
     return_data = clid('show cdp neighbor detail')
     json_data = json.loads(return_data)[
         'TABLE_cdp_neighbor_detail_info']['ROW_cdp_neighbor_detail_info']
-except:
+except ValueError:
     print('No CDP neighbors found.')
     exit()
 
@@ -78,22 +73,22 @@ for entry in cdp:
         cdp_dict[interface, i]['neighbor_plat'] = neighbor_plat
     # Add neighbor IP address(es) to dict.
     try:
-        mgmtaddr = entry['v4mgmtaddr']
-    except:
-        mgmtaddr = None
+        MGMT_ADDR = entry['v4mgmtaddr']
+    except ValueError:
+        MGMT_ADDR = None
     try:
-        addr = entry['v4addr']
-        if addr == mgmtaddr:
-            addr = '(--)'
-        elif addr == '0.0.0.0':
-            addr = '--'
-    except:
-        addr = None
-    cdp_dict[interface, i]['neighbor_mgmtaddr'] = mgmtaddr or '--'
-    cdp_dict[interface, i]['neighbor_addr'] = addr or '--'
+        ADDR = entry['v4addr']
+        if ADDR == MGMT_ADDR:
+            ADDR = '(--)'
+        elif ADDR == '0.0.0.0':
+            ADDR = '--'
+    except ValueError:
+        ADDR = None
+    cdp_dict[interface, i]['neighbor_mgmtaddr'] = MGMT_ADDR or '--'
+    cdp_dict[interface, i]['neighbor_addr'] = ADDR or '--'
 
 # Print header and custom CDP neighbor brief table.
-print('''CDP brief prints useful CDP neighbor information.
+print("""CDP brief prints useful CDP neighbor information.
 
 -v will include neighbor version information.
 -p will include neighbor platform information.
@@ -103,32 +98,32 @@ print('''CDP brief prints useful CDP neighbor information.
 Neighbors parsed: %s
 
 'L-Intf' denotes local interface.
-'N-Intf' denotes neighbor interface.\n\n''' % i)
+'N-Intf' denotes neighbor interface.\n\n""" % i)
 
-row_format = '%-8s -> %-22s %-14s %-16s %-16s'
-header_row = ('L-Intf', 'Neighbor', 'N-Intf', 'Mgmt-IPv4-Addr', 'IPv4-Addr')
+ROW_FORMAT = '%-8s -> %-22s %-14s %-16s %-16s'
+HEADER_ROW = ('L-Intf', 'Neighbor', 'N-Intf', 'Mgmt-IPv4-Addr', 'IPv4-Addr')
 if include_plat and include_ver:
-    row_format = row_format + ' %-20s %-20s'
-    header_row = header_row + ('Platform', 'Version')
-    dash_count = 115
+    ROW_FORMAT = ROW_FORMAT + ' %-20s %-20s'
+    HEADER_ROW = HEADER_ROW + ('Platform', 'Version')
+    DASH_COUNT = 115
 elif include_plat and not include_ver:
-    row_format = row_format + ' %-20s'
-    header_row = header_row + ('Platform',)
-    dash_count = 95
+    ROW_FORMAT = ROW_FORMAT + ' %-20s'
+    HEADER_ROW = HEADER_ROW + ('Platform',)
+    DASH_COUNT = 95
 elif include_ver and not include_plat:
-    row_format = row_format + ' %-20s'
-    header_row = header_row + ('Version',)
-    dash_count = 95
+    ROW_FORMAT = ROW_FORMAT + ' %-20s'
+    HEADER_ROW = HEADER_ROW + ('Version',)
+    DASH_COUNT = 95
 else:
-    dash_count = 80
+    DASH_COUNT = 80
 
-print(row_format % header_row)
-print('-'*dash_count)
+print(ROW_FORMAT % HEADER_ROW)
+print('-'*DASH_COUNT)
 
-if natsorted_avail:
+if NATSORTED_AVAIL:
     sorted_neighbors = natsorted(cdp_dict.items())
 else:
-    sorted_neighbors = sorted(cdp_dict.items())    
+    sorted_neighbors = sorted(cdp_dict.items())
 
 for key, value in sorted_neighbors:
     curr_nei = (value['local_intf'],
@@ -142,4 +137,4 @@ for key, value in sorted_neighbors:
         curr_nei = curr_nei + (value['neighbor_plat'],)
     elif include_ver and not include_plat:
         curr_nei = curr_nei + (value['neighbor_ver'],)
-    print(row_format % curr_nei)
+    print(ROW_FORMAT % curr_nei)

@@ -1,10 +1,11 @@
 #!/bin/env python
 # Author: DS, shnosh.io
+# pylint: disable=consider-using-f-string, missing-module-docstring, missing-function-docstring, invalid-name
 
 import argparse
-import cli
 import json
 import re
+import cli
 
 parser = argparse.ArgumentParser('NXOS CDP description toolbox.')
 parser.add_argument(
@@ -14,7 +15,9 @@ intf = args.interface
 
 # Accommodate Python2 on older guestshells.
 if hasattr(__builtins__, 'raw_input'):
-    input = raw_input
+    INPUT = raw_input
+else:
+    INPUT = input
 
 if intf == 'all':
     # Keyboard interrupt handler source: https://stackoverflow.com/a/1112350
@@ -22,10 +25,9 @@ if intf == 'all':
     import sys
 
     def signal_handler(sig, frame):
-        print(' - Keyboard interrupt.')
+        print('Cancelled due to keyboard interrupt.\n')
         sys.exit(0)
     signal.signal(signal.SIGINT, signal_handler)
-    signal.pause
 
     print('Checking all interfaces for CDP neighbors, press `ctrl+c` to interrupt.')
 
@@ -33,9 +35,9 @@ if intf == 'all':
     try:
         return_data = json.loads(cli.clid('show cdp neighbor detail'))[
             'TABLE_cdp_neighbor_detail_info']['ROW_cdp_neighbor_detail_info']
-    except:
+    except ValueError:
         print('No CDP neighbors found.')
-        exit()
+        sys.exit()
 
     # If more than one neighbor exists, a dict is built; otherwise a list is made.
     cdp = []
@@ -72,7 +74,7 @@ if intf == 'all':
             print('Interface %s description already matches CDP neighbor (%s).' %
                   (interface, curr_desc))
         else:
-            q = input('Update description on %s to "%s" (Currently: "%s")?  [y/n] ' % (
+            q = INPUT('Update description on %s to "%s" (Currently: "%s")?  [y/n] ' % (
                 interface, new_desc, curr_desc))
             if q == 'y':
                 cli.cli('conf t ; interface %s ; description %s' %
@@ -82,9 +84,9 @@ else:
     # Check for valid interface.
     try:
         check_intf = cli.cli('show inter %s' % intf)
-    except:
+    except ValueError:
         print('"%s" is not a valid interface.' % intf)
-        quit()
+        sys.exit()
 
     # Run CDP neighbor command, strip whitespace.
     cdp = cli.cli('show cdp nei int %s det' % intf)
