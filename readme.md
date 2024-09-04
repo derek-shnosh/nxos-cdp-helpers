@@ -47,8 +47,8 @@ Python scripts designed to assist network engineers working with NX-OS devices. 
 
 5. **Create CLI aliases** to run the scripts.
    ```bash
-   cli alias name cdpbr guestshell run python /bootflash/scripts/nxos-cdp-helpers/nxos-cdp-brief.py
-   cli alias name cdpdesc guestshell run python /bootflash/scripts/nxos-cdp-helpers/nxos-cdp-describe.py -i
+   cli alias name cdpbr guestshell run python /bootflash/scripts/nxos-cdp-helpers/python/nxos-cdp-brief.py
+   cli alias name cdpdesc guestshell run python /bootflash/scripts/nxos-cdp-helpers/python/nxos-cdp-describe.py -i
    ```
 
 ### Without Guestshell
