@@ -40,12 +40,17 @@ Python scripts designed to assist network engineers working with NX-OS devices. 
    guestshell run sudo chvrf management pip3 install natsort
    ```
 
-4. **Remove guestshell DNS config** (security measure).
+4. **Clone repository**.
+   ```bash
+   guestshell run sudo chvrf management git clone https://github.com/derek-shnosh/nxos-cdp-helpers.git /bootflash/scripts/nxos-cdp-helpers/
+   ```
+
+5. **Remove guestshell DNS config** (security measure).
    ```bash
    guestshell run sudo sh -c 'echo "" > /etc/resolv.conf'
    ```
 
-5. **Create CLI aliases** to run the scripts.
+6. **Create CLI aliases** to run the scripts.
    ```bash
    cli alias name cdpbr guestshell run python /bootflash/scripts/nxos-cdp-helpers/python/nxos-cdp-brief.py
    cli alias name cdpdesc guestshell run python /bootflash/scripts/nxos-cdp-helpers/python/nxos-cdp-describe.py -i
